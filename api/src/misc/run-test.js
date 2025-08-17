@@ -23,6 +23,15 @@ export async function runTest(url, params, expect) {
     if (expect.status !== result.body.status) {
         const detail = `${expect.status} (expected) != ${result.body.status} (actual)`;
         error.push(`status mismatch: ${detail}`);
+
+        if (result.body.status === 'error') {
+            error.push(`error code: ${result.body?.error?.code}`);
+        }
+    }
+
+    if (expect.errorCode && expect.errorCode !== result.body?.error?.code) {
+        const detail = `${expect.errorCode} (expected) != ${result.body.error.code} (actual)`
+        error.push(`error mismatch: ${detail}`);
     }
 
     if (expect.code !== result.status) {
@@ -39,6 +48,27 @@ export async function runTest(url, params, expect) {
     }
 
     if (result.body.status === 'tunnel') {
-        // TODO: stream testing
+        const streamRes = await fetch(result.body.url).catch((e) => {
+            throw `failed to fetch stream: ${e}`;
+        });
+
+        const expectedStream = expect.stream || {};
+        const expectedStatus = expectedStream.code || 200;
+
+        if (streamRes.status !== expectedStatus) {
+            throw `stream status code mismatch: ${expectedStatus} (expected) != ${streamRes.status} (actual)`;
+        }
+
+        if (expectedStream.headers) {
+            for (const [key, value] of Object.entries(expectedStream.headers)) {
+                const actual = streamRes.headers.get(key);
+                if (actual !== value) {
+                    throw `stream header mismatch for ${key}: ${value} (expected) != ${actual} (actual)`;
+                }
+            }
+        }
+
+        // terminate early to avoid downloading full file
+        streamRes.body?.cancel();
     }
 }
