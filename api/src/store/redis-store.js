@@ -20,7 +20,7 @@ export default class RedisStore extends Store {
     async _has(key) {
         await this.#connected;
 
-        return this.#client.hExists(key);
+        return !!(await this.#client.exists(this.#keyOf(key)));
     }
 
     async _get(key) {
